@@ -1,0 +1,30 @@
+# Core LLM stack (existing)
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langgraph>=0.2.0
+pydantic>=2.7.0
+python-dotenv>=1.0.1
+requests>=2.32.0
+
+# Settings & config (NEW — clause 2.13)
+pydantic-settings>=2.6.0
+
+# Caching (NEW — clause 2.10)
+cachetools>=5.5.0
+
+# Observability (NEW — clause 2.15)
+structlog>=24.4.0
+
+# HTTP server + SSE (NEW — productization, design 7.D)
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sse-starlette>=2.1.3
+
+# File locking for order log (NEW — design 7.D risk #6)
+portalocker>=2.10.0
+
+# Testing (NEW — design 12.x)
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+respx>=0.21.1
+hypothesis>=6.100.0

@@ -1,0 +1,35 @@
+# --- Secrets & local config ---
+.env
+.env.local
+.env.*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --- Application runtime ---
+logs/
+*.jsonl
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Project meta (keep these tracked) ---
+# .kiro/ is intentionally NOT ignored — design/spec docs go to repo
