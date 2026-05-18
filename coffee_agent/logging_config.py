@@ -23,6 +23,31 @@ T = TypeVar("T")
 _CONFIGURED = False
 
 
+class _LazyStderr:
+    """Proxy that resolves ``sys.stderr`` on every operation.
+
+    structlog's ``PrintLoggerFactory(file=...)`` captures the file
+    reference once at configure time, so a later ``sys.stderr`` rebind
+    (pytest's ``capsys`` / ``capfd`` redirection, ``contextlib.redirect_stderr``,
+    ...) would silently miss our log output. This proxy forwards
+    ``write`` / ``flush`` / ``isatty`` to whatever ``sys.stderr`` is
+    pointing at when each call happens.
+    """
+
+    def write(self, data: str) -> int:
+        return sys.stderr.write(data)
+
+    def flush(self) -> None:
+        sys.stderr.flush()
+
+    def isatty(self) -> bool:
+        return getattr(sys.stderr, "isatty", lambda: False)()
+
+    @property
+    def encoding(self) -> str:
+        return getattr(sys.stderr, "encoding", "utf-8")
+
+
 def configure(level: str = "INFO", json_logs: bool = True) -> None:
     """Configure structlog + stdlib logging once. Idempotent."""
     global _CONFIGURED
@@ -58,9 +83,10 @@ def configure(level: str = "INFO", json_logs: bool = True) -> None:
         processors=[*shared_processors, renderer],
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
         context_class=dict,
-        # Print to stderr so structured logs don't pollute the CLI's
-        # stdout stream where chatter tokens are streamed.
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        # ``_LazyStderr`` resolves ``sys.stderr`` on EVERY write so
+        # pytest's ``capfd`` / ``capsys`` redirections take effect
+        # mid-run instead of being baked in at configure time.
+        logger_factory=structlog.PrintLoggerFactory(file=_LazyStderr()),
         cache_logger_on_first_use=True,
     )
 

@@ -51,6 +51,8 @@ class MemoryNode:
         # Last error is per-turn (cleared so a successful turn doesn't
         # surface a stale error from the previous one).
         state.error = None
+        # Customer info deltas are per-turn — planner repopulates them.
+        state.customer_info_delta = {}
 
         # PRESERVED across turns: cart, context, history, session_id,
         # last_catalog, last_catalog_keyword, user_id, order_stage.

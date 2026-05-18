@@ -461,9 +461,17 @@ def test_3_12_vietqr_url_format_with_amount(total):
 
     Validates: Requirements 3.12.
     """
+    from coffee_agent.state import CustomerInfo
+
     state = make_state(
         query="chốt đơn",
         cart=[make_cart_item("X", id="x", type="dish", price=total, quantity=1)],
+        # Pre-fill required delivery info so checkout finalizes immediately.
+        customer_info=CustomerInfo(
+            delivery_mode="pickup",
+            name="Test User",
+            phone="0901234567",
+        ),
     )
     CheckoutAgent().invoke(state)
 
@@ -481,9 +489,16 @@ def test_3_12_vietqr_url_no_amount_when_total_unknown():
 
     Validates: Requirements 3.12.
     """
+    from coffee_agent.state import CustomerInfo
+
     state = make_state(
         query="chốt đơn",
         cart=[make_cart_item("X", id="x", type="dish", price=None, quantity=1)],
+        customer_info=CustomerInfo(
+            delivery_mode="pickup",
+            name="Test User",
+            phone="0901234567",
+        ),
     )
     CheckoutAgent().invoke(state)
 

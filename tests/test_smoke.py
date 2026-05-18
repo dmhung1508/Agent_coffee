@@ -323,6 +323,8 @@ def test_remove_ambiguous(patched_graph):
 
 def test_checkout_with_order_id(patched_graph):
     """Checkout SHALL emit a UUID4 order_id and the canonical VietQR URL."""
+    from coffee_agent.state import CustomerInfo
+
     fake_llm = FakeChatOpenAI()
     fake_llm.script_route(
         RouteDecision(
@@ -348,6 +350,13 @@ def test_checkout_with_order_id(patched_graph):
                 quantity=2,
             )
         ],
+        # Pre-fill customer info so checkout finalizes immediately rather
+        # than entering the collecting_info loop.
+        customer_info=CustomerInfo(
+            delivery_mode="pickup",
+            name="Test User",
+            phone="0901234567",
+        ),
     )
     final = _coerce_state(graph.invoke(state))
 

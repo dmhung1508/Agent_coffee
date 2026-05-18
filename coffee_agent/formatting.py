@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .menu_client import detail_from_item
-from .state import Cart
+from .state import Cart, CustomerInfo
 
 
 def format_price(value: Any) -> str:
@@ -59,4 +59,27 @@ def render_cart(cart: Cart) -> str:
     total = cart.total()
     if total is not None:
         lines.append(f"Tạm tính: {format_price(total)}")
+    return "\n".join(lines)
+
+
+def render_customer_info(info: CustomerInfo) -> str:
+    """Render the delivery / pickup block for the checkout response."""
+    if info.delivery_mode == "pickup":
+        header = "Lấy tại quán:"
+    elif info.delivery_mode == "delivery":
+        header = "Giao tận nơi:"
+    else:
+        header = "Thông tin nhận hàng:"
+
+    lines = [header]
+    if info.name:
+        lines.append(f"- Người nhận: {info.name}")
+    if info.phone:
+        lines.append(f"- SĐT: {info.phone}")
+    if info.delivery_mode == "delivery" and info.address:
+        lines.append(f"- Địa chỉ: {info.address}")
+    if info.delivery_time:
+        lines.append(f"- Thời gian: {info.delivery_time}")
+    if info.note:
+        lines.append(f"- Ghi chú: {info.note}")
     return "\n".join(lines)

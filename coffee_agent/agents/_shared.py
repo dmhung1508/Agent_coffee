@@ -1,9 +1,7 @@
 """Shared types for the agents package.
 
 Holds the planner ``RouteDecision`` schema plus the ``Literal`` aliases
-referenced by both planner and downstream agents. Kept verbatim from the
-pre-refactor ``coffee_agent/agents.py`` so the public surface is
-unchanged (design 8.10).
+referenced by both planner and downstream agents.
 """
 from __future__ import annotations
 
@@ -16,6 +14,7 @@ from coffee_agent.text import fold_text  # re-exported for callers
 RouteName = Literal["retriever", "cart", "checkout", "chatter", "unsupported"]
 CartAction = Literal["add", "remove", "view", "total", "clear", "none"]
 RetrievalMode = Literal["browse_menu", "search_menu", "detail", "recommendation"]
+DeliveryMode = Literal["pickup", "delivery", ""]
 
 
 class RouteDecision(BaseModel):
@@ -39,8 +38,45 @@ class RouteDecision(BaseModel):
         description="Reason when the customer asks for information this API cannot know.",
     )
 
+    # ---- Delivery / pickup fields ------------------------------------------
+    # The planner extracts customer info pieces from natural language and the
+    # CheckoutAgent commits them to ``state.customer_info``. Routing for
+    # info-providing turns is "checkout" (CheckoutAgent owns the collecting
+    # state machine).
+    delivery_mode: DeliveryMode | None = Field(
+        default=None,
+        description='"pickup", "delivery", or null. Set when the user picks how to receive the order.',
+    )
+    customer_name: str | None = Field(
+        default=None,
+        description="Recipient full name parsed from the user's message.",
+    )
+    customer_phone: str | None = Field(
+        default=None,
+        description="Vietnamese mobile number (10 digits, starts with 0) parsed from the user's message.",
+    )
+    customer_address: str | None = Field(
+        default=None,
+        description="Delivery street address parsed from the user's message.",
+    )
+    customer_note: str | None = Field(
+        default=None,
+        description="Free-text order note (e.g. 'ít đường', 'không cay').",
+    )
+    delivery_time: str | None = Field(
+        default=None,
+        description="Free-text desired delivery time ('asap', '14h chiều', '30 phút nữa').",
+    )
+
 
 RouteDecision.model_rebuild()
 
 
-__all__ = ["RouteName", "CartAction", "RetrievalMode", "RouteDecision", "fold_text"]
+__all__ = [
+    "RouteName",
+    "CartAction",
+    "RetrievalMode",
+    "DeliveryMode",
+    "RouteDecision",
+    "fold_text",
+]

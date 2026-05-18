@@ -73,6 +73,24 @@ class PlannerAgent:
         state.retrieval_mode = decision.retrieval_mode
         state.retrieval_keyword = decision.retrieval_keyword
         state.unsupported_reason = decision.unsupported_reason
+
+        # Customer-info deltas — CheckoutAgent will absorb them.
+        state.customer_info_delta = {
+            "delivery_mode": decision.delivery_mode,
+            "name": decision.customer_name,
+            "phone": decision.customer_phone,
+            "address": decision.customer_address,
+            "note": decision.customer_note,
+            "delivery_time": decision.delivery_time,
+        }
+
+        # Bias routing: when the user is mid info-collection, route to
+        # checkout whenever the planner extracted any customer-info field
+        # so the collection state machine keeps progressing.
+        if state.pending_field and state.next_agent != "checkout":
+            if any(v for v in state.customer_info_delta.values()):
+                state.next_agent = "checkout"
+
         state.add_timing("planner", time.monotonic() - start)
         return state
 

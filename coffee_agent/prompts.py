@@ -61,7 +61,29 @@ ROUTING RULES — choose exactly one value for next_agent:
     - total: customer wants the running total.
 
 * checkout — customer confirms the order, asks to pay, asks for the QR
-  code, or otherwise places the order.
+  code, places the order, OR provides delivery / pickup information
+  (name, phone, address, note, delivery time, choice of pickup vs
+  delivery). When the user is in the middle of a checkout flow (the
+  ``CART SUMMARY`` shows a pending field), interpret short replies as
+  customer-info answers and route here even if the message looks like
+  unrelated chitchat.
+
+  When you can extract any of the following from the user message,
+  populate the corresponding RouteDecision field:
+    - delivery_mode      : "pickup" if user says lấy tại quán / pick up,
+                           "delivery" if user says ship / giao tận nơi /
+                           giao đến / mang tới.
+    - customer_name      : full Vietnamese name of the recipient.
+    - customer_phone     : exactly 10 digits, must start with 0 (do NOT
+                           include spaces or dashes — strip them).
+    - customer_address   : full street address (số nhà, đường,
+                           phường/quận/xã/huyện, thành phố).
+    - customer_note      : free-text instruction (ít đường, không cay,
+                           gọi trước khi đến...).
+    - delivery_time      : free-text time ("asap", "30 phút nữa",
+                           "14h chiều"). Do not invent if not stated.
+
+  Leave any field null when the user did not actually mention it.
 
 * unsupported — questions the read-only public menu API cannot answer:
   best-seller or sales ranking, current stock, wait time, delivery fee,
@@ -213,6 +235,12 @@ def _route_json(**fields: Any) -> str:
         "retrieval_mode": fields.get("retrieval_mode"),
         "retrieval_keyword": fields.get("retrieval_keyword"),
         "unsupported_reason": fields.get("unsupported_reason"),
+        "delivery_mode": fields.get("delivery_mode"),
+        "customer_name": fields.get("customer_name"),
+        "customer_phone": fields.get("customer_phone"),
+        "customer_address": fields.get("customer_address"),
+        "customer_note": fields.get("customer_note"),
+        "delivery_time": fields.get("delivery_time"),
     }
     return json.dumps(base, ensure_ascii=False)
 
@@ -280,6 +308,39 @@ PLANNER_FEW_SHOTS: list[tuple[str, str, str]] = [
             action="none",
         ),
         "Greeting fallback; the fast path normally catches this earlier.",
+    ),
+    (
+        "chốt đơn, ship tới 12 Trần Hưng Đạo Q.1, anh Nam 0901234567",
+        _route_json(
+            next_agent="checkout",
+            query="chốt đơn, ship tới 12 Trần Hưng Đạo Q.1, anh Nam 0901234567",
+            action="none",
+            delivery_mode="delivery",
+            customer_name="anh Nam",
+            customer_phone="0901234567",
+            customer_address="12 Trần Hưng Đạo, Q.1",
+        ),
+        "Checkout with delivery info packed into one message — extract every field.",
+    ),
+    (
+        "tự đến lấy nhé",
+        _route_json(
+            next_agent="checkout",
+            query="tự đến lấy nhé",
+            action="none",
+            delivery_mode="pickup",
+        ),
+        "Customer chose pickup mid-checkout — no name/phone yet, just the mode.",
+    ),
+    (
+        "0987654321",
+        _route_json(
+            next_agent="checkout",
+            query="0987654321",
+            action="none",
+            customer_phone="0987654321",
+        ),
+        "Bare 10-digit phone reply mid-checkout — extract as customer_phone.",
     ),
 ]
 
@@ -419,10 +480,12 @@ class PlannerContext:
         cart_summary = _render_cart_compact(state.cart)
         catalog_block = _render_last_catalog_numbered(state.last_catalog)
         context_tail = (state.context or "")[-800:]
+        checkout_block = _render_checkout_state(state)
         payload = (
             f"USER QUERY: {state.query}\n\n"
             f"CART SUMMARY:\n{cart_summary}\n\n"
             f"LAST CATALOG (numbered):\n{catalog_block}\n\n"
+            f"CHECKOUT STATE:\n{checkout_block}\n\n"
             f"RECENT CONTEXT (last 800 chars):\n"
             f"{context_tail or '(none)'}"
         )
@@ -431,6 +494,30 @@ class PlannerContext:
             *_planner_few_shot_messages(),
             HumanMessage(content=payload),
         ]
+
+
+def _render_checkout_state(state: CoffeeState) -> str:
+    """Render the customer-info collection state for the planner payload.
+
+    Tells the planner what the CheckoutAgent has collected so far and
+    which field it is currently waiting for, so a bare reply like
+    ``0901234567`` can be classified as a phone answer rather than as
+    a generic chatter turn.
+    """
+    info = state.customer_info
+    pending = state.pending_field or "(none)"
+    parts: list[str] = [f"order_stage={state.order_stage}", f"pending_field={pending}"]
+    if info.delivery_mode:
+        parts.append(f"delivery_mode={info.delivery_mode}")
+    if info.name:
+        parts.append(f"name={info.name}")
+    if info.phone:
+        parts.append(f"phone={info.phone}")
+    if info.delivery_mode == "delivery" and info.address:
+        parts.append(f"address={info.address}")
+    if info.note:
+        parts.append(f"note={info.note}")
+    return "\n".join(parts)
 
 
 class ChatterContext:

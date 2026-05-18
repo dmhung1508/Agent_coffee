@@ -71,6 +71,40 @@ class TurnRecord(BaseModel):
     ts: datetime = Field(default_factory=datetime.utcnow)
 
 
+class CustomerInfo(BaseModel):
+    """Delivery / pickup info collected during checkout.
+
+    Empty / default values mean "not yet provided". CheckoutAgent walks
+    the missing-fields list every turn until everything required is set.
+    """
+
+    delivery_mode: str = ""   # "" | "pickup" | "delivery"
+    name: str = ""
+    phone: str = ""
+    address: str = ""
+    note: str = ""
+    delivery_time: str = ""
+
+    def is_complete(self) -> tuple[bool, list[str]]:
+        """Return (complete, missing_fields).
+
+        - delivery_mode is always required.
+        - name + phone are always required.
+        - address is required only when delivery_mode == "delivery".
+        - note + delivery_time are optional.
+        """
+        missing: list[str] = []
+        if self.delivery_mode not in ("pickup", "delivery"):
+            missing.append("delivery_mode")
+        if not self.name.strip():
+            missing.append("name")
+        if not self.phone.strip():
+            missing.append("phone")
+        if self.delivery_mode == "delivery" and not self.address.strip():
+            missing.append("address")
+        return (len(missing) == 0, missing)
+
+
 class OrderRecord(BaseModel):
     """An order draft created by CheckoutAgent."""
 
@@ -79,6 +113,7 @@ class OrderRecord(BaseModel):
     items: list[CartItem]
     total: int | float | None = None
     qr_url: str = ""
+    customer: CustomerInfo = Field(default_factory=CustomerInfo)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -118,6 +153,13 @@ class CoffeeState(BaseModel):
     history: list[TurnRecord] = Field(default_factory=list)
     fast_path_kind: str | None = None
     error: dict[str, Any] | None = None
+
+    # Delivery / pickup support
+    customer_info: CustomerInfo = Field(default_factory=CustomerInfo)
+    pending_field: str | None = None  # which CustomerInfo field we're waiting for
+    customer_info_delta: dict[str, Any] = Field(default_factory=dict)
+    # ^ per-turn deltas extracted by planner; CheckoutAgent commits them
+    # into customer_info and MemoryNode resets it at the start of each turn.
 
     def add_timing(self, step: str, duration: float) -> None:
         self.timings[step] = duration

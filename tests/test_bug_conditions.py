@@ -610,7 +610,7 @@ def test_e14_planner_prompt_includes_last_catalog() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_e15_node_emits_structured_log(capsys: pytest.CaptureFixture[str]) -> None:
+def test_e15_node_emits_structured_log(capfd: pytest.CaptureFixture[str]) -> None:
     """Every node invocation SHALL emit a structured JSON log line with
     at least a ``"node"`` field.
 
@@ -621,7 +621,9 @@ def test_e15_node_emits_structured_log(capsys: pytest.CaptureFixture[str]) -> No
     cart_agent = CartAgent(fake_api)
     cart_agent.invoke(state)
 
-    captured = capsys.readouterr()
+    # capfd captures at the OS file-descriptor level so it survives
+    # structlog's import-time PrintLoggerFactory binding to sys.stderr.
+    captured = capfd.readouterr()
     combined = captured.out + captured.err
 
     has_structured_line = False
@@ -693,9 +695,14 @@ def test_e17_checkout_emits_unique_order_id() -> None:
 
     Today ``CheckoutAgent`` neither generates an order_id nor surfaces one.
     """
+    from coffee_agent.state import CustomerInfo
+
     checkout = CheckoutAgent()
 
     def run_one() -> CoffeeState:
+        # Pre-fill complete customer info so checkout finalizes the
+        # order on the first turn (the bare-minimum collecting flow is
+        # covered separately).
         state = make_state(
             query="chốt đơn",
             cart=[
@@ -707,6 +714,11 @@ def test_e17_checkout_emits_unique_order_id() -> None:
                     quantity=1,
                 )
             ],
+            customer_info=CustomerInfo(
+                delivery_mode="pickup",
+                name="Test User",
+                phone="0901234567",
+            ),
         )
         checkout.invoke(state)
         return state
